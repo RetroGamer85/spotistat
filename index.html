@@ -1,16 +1,396 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style/style.css">
-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap CSS -->
-    <title>Spoti'stat</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style/style.css" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
     <title>Spoti'stat</title>
   </head>
   <body>
+    <header class="bg-primary text-white text-center py-5">
+      <div class="container">
+        <h1 class="fw-bold mb-2">Spoti'stat Mathyas</h1>
+        <p class="mb-0 opacity-85">j'ai pas d'inspi mais VIVE LE METAAAAAAL</p>
+      </div>
+    </header>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script> <!-- Bootstrap JS -->
+    <div class="container py-4" x-data="musicDashboard()" x-init="init()">
+      <!--les graphiques (Top artistes + Genres)-->
+      <div class="row g-4">
+        <!-- Top artistes -->
+        <div class="col-lg-6">
+          <div class="card shadow-sm h-100 chart-card">
+            <div class="card-header bg-primary text-white">
+              Top 10 des Artistes
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas x-ref="artistsChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Genres -->
+        <div class="col-lg-6">
+          <div class="card shadow-sm h-100 chart-card">
+            <div class="card-header bg-success text-white">
+              Distribution des Genres
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas x-ref="genresChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!--Liste des sons-->
+      <div class="card shadow-sm mt-4">
+        <div
+          class="card-header bg-info text-white d-flex justify-content-between align-items-center"
+        >
+          Liste des Morceaux
+          <div style="width: 250px">
+            <input
+              type="text"
+              x-model="searchQuery"
+              class="form-control"
+              placeholder="Rechercher..."
+            />
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Titre</th>
+                <th>Artiste</th>
+                <th>Album</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="track in filteredTracks()" :key="track.id">
+                <tr>
+                  <td x-text="track.title"></td>
+                  <td x-text="track.artist"></td>
+                  <td x-text="track.album"></td>
+                  <td class="text-end">
+                    <button
+                      type="button"
+                      @click="openTrackDetails(track)"
+                      class="btn btn-primary btn-sm d-flex flex-column align-items-center px-3"
+                    >
+                      <span style="font-size: 1.1em">ⓘ</span>
+                      <span>Détails</span>
+                    </button>
+                  </td>
+                </tr>
+              </template>
+              <template x-if="filteredTracks().length === 0">
+                <tr>
+                  <td colspan="4" class="text-center text-muted">
+                    Aucun morceau trouvé
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!--Détails du morceau -->
+      <div
+        class="modal fade"
+        id="modalTrackDetails"
+        tabindex="-1"
+        aria-labelledby="modalTrackLabel"
+        aria-hidden="true"
+        x-ref="trackModal"
+      >
+        <div
+          class="modal-dialog modal-dialog-centered"
+          style="max-width: 800px"
+        >
+          <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0 bg-light">
+              <h5 class="modal-title" id="modalTrackLabel">
+                Détails du morceau
+              </h5>
+              <button
+                type="button"
+                class="btn-close"
+                @click="closeTrackDetails()"
+                aria-label="Fermer"
+              ></button>
+            </div>
+            <div class="modal-body p-4" x-show="selectedTrack">
+              <div class="row g-4">
+                <!-- Gauche: Image album + infos album -->
+                <div class="col-md-4 text-center">
+                  <img
+                    :src="selectedTrack?.albumCover || 'https://placehold.co/300x300?text=Album'"
+                    class="img-fluid rounded shadow-sm mb-3"
+                    :alt="selectedTrack?.album"
+                    style="aspect-ratio: 1"
+                  />
+
+                  <div class="bg-light p-3 rounded">
+                    <p class="mb-2 text-muted small"><strong>Album</strong></p>
+                    <p
+                      class="mb-2"
+                      x-text="selectedTrack?.album"
+                      style="font-weight: 600; font-size: 0.95rem"
+                    ></p>
+
+                    <hr class="my-2" />
+
+                    <div class="row text-center g-2 small">
+                      <div class="col-6">
+                        <p class="mb-1 text-muted">Création</p>
+                        <p
+                          class="fw-semibold"
+                          x-text="selectedTrack?.albumDate.slice(0, 4)"
+                        ></p>
+                      </div>
+                      <div class="col-6">
+                        <p class="mb-1 text-muted">Titres</p>
+                        <p
+                          class="fw-semibold"
+                          x-text="selectedTrack?.albumTotalTracks"
+                        ></p>
+                      </div>
+                    </div>
+
+                    <hr class="my-2" />
+
+                    <p class="mb-1 text-muted small">
+                      <strong>Popularité</strong>
+                    </p>
+                    <div class="progress" style="height: 20px">
+                      <div
+                        class="progress-bar bg-success"
+                        role="progressbar"
+                        :style="`width: ${selectedTrack?.popularity}%`"
+                        :aria-valuenow="selectedTrack?.popularity"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                      >
+                        <small x-text="selectedTrack?.popularity + '%'"></small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Droite: Titre, preview, infos morceau -->
+                <div class="col-md-8">
+                  <h3 x-text="selectedTrack?.title" class="mb-2"></h3>
+                  <p class="text-muted mb-3" x-text="selectedTrack?.artist"></p>
+
+                  <!-- Preview audio -->
+                  <div class="mb-4" x-show="selectedTrack?.previewUrl">
+                    <p class="small text-muted mb-2">
+                      <strong>Preview</strong>
+                    </p>
+                    <audio controls class="w-100" style="height: 35px">
+                      <source
+                        :src="selectedTrack?.previewUrl"
+                        type="audio/mpeg"
+                      />
+                      Votre navigateur ne supporte pas la lecture audio.
+                    </audio>
+                  </div>
+
+                  <!-- Infos du morceau -->
+                  <div class="mb-3">
+                    <p class="mb-2 small"><strong>Durée</strong></p>
+                    <p
+                      x-text="formatDuration(selectedTrack?.duration)"
+                      class="text-muted"
+                    ></p>
+                  </div>
+
+                  <div class="mb-3">
+                    <p class="mb-2 small"><strong>Numéro de piste</strong></p>
+                    <p
+                      x-text="selectedTrack?.trackNumber"
+                      class="text-muted"
+                    ></p>
+                  </div>
+
+                  <div class="mb-3">
+                    <p class="mb-2 small"><strong>Éxplicite</strong></p>
+                    <p class="text-muted">
+                      <span
+                        x-show="selectedTrack?.explicit"
+                        class="badge bg-danger"
+                        >Oui</span
+                      >
+                      <span
+                        x-show="!selectedTrack?.explicit"
+                        class="badge bg-success"
+                        >Non</span
+                      >
+                    </p>
+                  </div>
+
+                  <div class="mb-3">
+                    <p class="mb-2 small"><strong>Popularité</strong></p>
+                    <div class="progress" style="height: 25px">
+                      <div
+                        class="progress-bar bg-info"
+                        role="progressbar"
+                        :style="`width: ${selectedTrack?.popularity}%`"
+                        :aria-valuenow="selectedTrack?.popularity"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                      >
+                        <span
+                          x-text="selectedTrack?.popularity + '%'"
+                          style="font-size: 0.85rem"
+                        ></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <p class="mb-2 small"><strong>Artiste(s)</strong></p>
+                    <div>
+                      <template
+                        x-for="artist in selectedTrack?.artists"
+                        :key="artist.id"
+                      >
+                        <span
+                          class="badge bg-primary me-2 mb-1"
+                          x-text="artist.name"
+                        ></span>
+                      </template>
+                    </div>
+                  </div>
+
+                  <div class="mb-4">
+                    <p class="mb-2 small"><strong>Genre(s)</strong></p>
+                    <div>
+                      <template
+                        x-for="genre in selectedTrack?.genres"
+                        :key="genre"
+                      >
+                        <span
+                          class="badge bg-secondary me-2 mb-1"
+                          x-text="genre"
+                        ></span>
+                      </template>
+                    </div>
+                  </div>
+
+                  <a
+                    :href="selectedTrack?.spotify"
+                    target="_blank"
+                    rel="noopener"
+                    class="btn btn-primary"
+                    x-show="selectedTrack?.spotify"
+                    >Ouvrir dans Deezer</a
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div
+          class="card-header text-dark d-flex justify-content-between align-items-center"
+        >
+          <span class="fw-semibold">Albums Populaires</span>
+          <span
+            class="badge bg-dark text-white"
+            x-text="albums.length + ' albums'"
+          ></span>
+        </div>
+
+        <div class="card-body p-3">
+          <div
+            class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-xl-6 g-3"
+          >
+            <template x-for="album in albums" :key="album.id">
+              <div class="col">
+                <div class="card h-100 border-0 shadow-sm album-card">
+                  <!-- Pochette carrée -->
+                  <div class="ratio ratio-1x1">
+                    <img
+                      :src="album.pochette || 'https://placehold.co/250x250?text=?'"
+                      class="object-fit-cover w-100 h-100 rounded-top"
+                      :alt="album.nom"
+                      loading="lazy"
+                    />
+                  </div>
+
+                  <!-- Infos -->
+                  <div class="card-body p-2 d-flex flex-column">
+                    <p
+                      class="fw-semibold mb-0 text-truncate album-title"
+                      :title="album.nom"
+                      x-text="album.nom"
+                    ></p>
+
+                    <p
+                      class="text-muted mb-1 text-truncate album-artist"
+                      x-text="album.artiste"
+                    ></p>
+
+                    <div
+                      class="d-flex justify-content-between align-items-center mb-1"
+                    >
+                      <small
+                        class="text-muted album-meta"
+                        x-text="album.date.slice(0, 4)"
+                      ></small>
+                      <span
+                        class="badge bg-primary text-white border album-meta"
+                        x-text="album.totalTracks + ' titres'"
+                      ></span>
+                    </div>
+
+                    <!-- Barre de popularité -->
+                    <div
+                      class="progress album-progress mb-1"
+                      :title="'Popularité : ' + album.popularite + '/100'"
+                    >
+                      <div
+                        class="progress-bar bg-success"
+                        role="progressbar"
+                        :style="`width: ${album.popularite}%`"
+                        :aria-valuenow="album.popularite"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                      ></div>
+                    </div>
+                    <div class="text-end">
+                      <small
+                        class="text-muted album-meta"
+                        x-text="album.popularite + '/100'"
+                      ></small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.12.0/dist/cdn.min.js"
+      defer
+    ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <script src="script/script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
